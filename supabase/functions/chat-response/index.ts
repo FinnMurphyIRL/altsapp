@@ -16,6 +16,12 @@ serve(async (req) => {
     const { chatHistoryId, currentMessage, participantName } = await req.json()
     console.log('Received request:', { chatHistoryId, currentMessage, participantName })
 
+    // Verify OpenAI API key is set
+    const openAIKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openAIKey) {
+      throw new Error('OpenAI API key is not configured')
+    }
+
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -58,7 +64,7 @@ Keep your response concise and natural, maintaining the same tone and style as s
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openAIKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -73,7 +79,15 @@ Keep your response concise and natural, maintaining the same tone and style as s
     if (!response.ok) {
       const errorData = await response.json()
       console.error('OpenAI API error:', errorData)
-      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`)
+      
+      // Check for specific OpenAI errors
+      if (errorData.error?.message?.includes('exceeded your current quota')) {
+        throw new Error('OpenAI API quota exceeded. Please check your billing details.')
+      } else if (errorData.error?.message?.includes('invalid_api_key')) {
+        throw new Error('Invalid OpenAI API key. Please check your configuration.')
+      } else {
+        throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`)
+      }
     }
 
     const data = await response.json()
