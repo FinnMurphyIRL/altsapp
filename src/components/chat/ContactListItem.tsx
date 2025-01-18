@@ -6,6 +6,7 @@ export interface Contact {
   avatar: string;
   lastMessage?: string;
   online?: boolean;
+  chatHistoryId?: string;
 }
 
 interface ContactListItemProps {
