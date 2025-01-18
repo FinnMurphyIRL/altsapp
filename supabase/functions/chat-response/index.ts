@@ -14,6 +14,7 @@ serve(async (req) => {
 
   try {
     const { chatHistoryId, currentMessage, participantName } = await req.json()
+    console.log('Received request:', { chatHistoryId, currentMessage, participantName })
 
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -22,12 +23,19 @@ serve(async (req) => {
     )
 
     // Fetch recent chat history
-    const { data: messages } = await supabaseClient
+    const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
       .order('timestamp', { ascending: true })
       .limit(10)
+
+    if (messagesError) {
+      console.error('Error fetching messages:', messagesError)
+      throw new Error('Failed to fetch chat history')
+    }
+
+    console.log('Retrieved messages:', messages)
 
     // Format chat history for context
     const chatHistory = messages?.map(msg => 
@@ -43,6 +51,8 @@ Now respond to this message naturally, as ${participantName} would, based on you
 "${currentMessage}"
 
 Keep your response concise and natural, maintaining the same tone and style as shown in the chat history.`
+
+    console.log('Sending prompt to OpenAI:', prompt)
 
     // Get AI response
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -60,7 +70,20 @@ Keep your response concise and natural, maintaining the same tone and style as s
       }),
     })
 
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('OpenAI API error:', errorData)
+      throw new Error(`OpenAI API error: ${errorData.error?.message || 'Unknown error'}`)
+    }
+
     const data = await response.json()
+    console.log('OpenAI response:', data)
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Unexpected OpenAI response format:', data)
+      throw new Error('Invalid response format from OpenAI')
+    }
+
     const aiResponse = data.choices[0].message.content
 
     return new Response(
@@ -68,7 +91,7 @@ Keep your response concise and natural, maintaining the same tone and style as s
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error in chat-response function:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
