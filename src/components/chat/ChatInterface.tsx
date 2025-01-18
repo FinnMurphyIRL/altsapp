@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Contact } from "./ContactListItem";
 import { ContactList } from "./ContactList";
 import { ChatBubble } from "./ChatBubble";
@@ -32,6 +32,15 @@ export const ChatInterface = () => {
   const [showContacts, setShowContacts] = useState(!isMobile);
   const [showUploadFlow, setShowUploadFlow] = useState(false);
   const { toast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -232,6 +241,7 @@ export const ChatInterface = () => {
                   isSent={message.sent}
                 />
               ))}
+              <div ref={messagesEndRef} />
             </div>
 
             <ChatInput onSendMessage={handleSendMessage} />
