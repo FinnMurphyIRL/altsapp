@@ -16,25 +16,23 @@ serve(async (req) => {
     const { chatHistoryId, currentMessage, participantName } = await req.json()
     console.log('Received request:', { chatHistoryId, currentMessage, participantName })
 
-    // Verify OpenAI API key is set
     const openAIKey = Deno.env.get('OPENAI_API_KEY')
     if (!openAIKey) {
       throw new Error('OpenAI API key is not configured')
     }
 
-    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Fetch recent chat history
+    // Fetch more chat history for better context
     const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
       .order('timestamp', { ascending: true })
-      .limit(10)
+      .limit(20) // Increased from 10 to 20 for more context
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
@@ -43,24 +41,36 @@ serve(async (req) => {
 
     console.log('Retrieved messages:', messages)
 
-    // Format chat history for context
+    // Analyze message patterns and style
+    const participantMessages = messages
+      ?.filter(msg => msg.sender_name === participantName)
+      .map(msg => msg.content) || []
+
+    // Create a more detailed prompt that captures personality
     const chatHistory = messages?.map(msg => 
       `${msg.sender_name}: ${msg.content}`
     ).join('\n') || ''
 
-    // Create prompt for AI
-    const prompt = `You are ${participantName}. You have been having conversations as shown in this chat history:
+    const prompt = `You are ${participantName}. Based on the following chat history, you've demonstrated these communication patterns:
 
+${participantMessages.length > 0 ? `Here are some examples of how you typically communicate:
+${participantMessages.slice(0, 3).join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
+
+Chat history:
 ${chatHistory}
 
-Now respond to this message naturally, as ${participantName} would, based on your chat history and personality:
+Now respond to this message as ${participantName}, maintaining consistency with your previous communication style, personality traits, and knowledge shown in the chat history:
 "${currentMessage}"
 
-Keep your response concise and natural, maintaining the same tone and style as shown in the chat history.`
+Important guidelines:
+- Match the tone, style, and personality shown in previous messages
+- Keep responses concise and natural
+- Maintain consistent knowledge and opinions
+- Use similar language patterns and expressions
+- Stay in character at all times`
 
     console.log('Sending prompt to OpenAI:', prompt)
 
-    // Get AI response
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -68,11 +78,15 @@ Keep your response concise and natural, maintaining the same tone and style as s
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o', // Using the more powerful model for better personality matching
         messages: [
-          { role: 'system', content: 'You are an AI trained to respond like a specific person based on their chat history.' },
+          { 
+            role: 'system', 
+            content: 'You are an AI trained to respond like a specific person based on their chat history. Focus on maintaining consistent personality traits, knowledge, and communication style.'
+          },
           { role: 'user', content: prompt }
         ],
+        temperature: 0.9, // Slightly increased for more personality variation while staying in character
       }),
     })
 
@@ -80,9 +94,8 @@ Keep your response concise and natural, maintaining the same tone and style as s
       const errorData = await response.json()
       console.error('OpenAI API error:', errorData)
       
-      // Check for specific OpenAI errors
       if (errorData.error?.message?.includes('exceeded your current quota')) {
-        throw new Error('OpenAI API quota exceeded. Please add billing information or wait for quota reset.')
+        throw new Error('OpenAI API quota exceeded. Please check your billing details.')
       } else if (errorData.error?.message?.includes('invalid_api_key')) {
         throw new Error('Invalid OpenAI API key. Please check your configuration.')
       } else {
