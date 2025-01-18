@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Contact } from "./ContactListItem";
 import { ContactList } from "./ContactList";
-import { ChatBubble } from "./ChatBubble";
 import { ChatInput } from "./ChatInput";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -10,18 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { ChatHeader } from "./ChatHeader";
+import { MessageList } from "./MessageList";
 
 interface Message {
   id: string;
   text: string;
   timestamp: string;
   sent: boolean;
-}
-
-interface ChatParticipant {
-  id: string;
-  participant_name: string;
-  is_uploader: boolean;
 }
 
 export const ChatInterface = () => {
@@ -32,15 +27,6 @@ export const ChatInterface = () => {
   const [showContacts, setShowContacts] = useState(!isMobile);
   const [showUploadFlow, setShowUploadFlow] = useState(false);
   const { toast } = useToast();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -106,15 +92,15 @@ export const ChatInterface = () => {
 
     setMessages((prev) => [...prev, newMessage]);
 
-    // Store user message in database
-    await supabase.from('chat_messages').insert({
-      chat_history_id: selectedContact.chatHistoryId,
-      sender_name: "You",
-      content: text,
-      timestamp: new Date().toISOString(),
-    });
-
     try {
+      // Store user message in database
+      await supabase.from('chat_messages').insert({
+        chat_history_id: selectedContact.chatHistoryId,
+        sender_name: "You",
+        content: text,
+        timestamp: new Date().toISOString(),
+      });
+
       // Get AI response
       const { data, error } = await supabase.functions.invoke('chat-response', {
         body: {
@@ -212,38 +198,12 @@ export const ChatInterface = () => {
       >
         {selectedContact ? (
           <>
-            <div className="flex items-center gap-3 border-b bg-white p-4">
-              {isMobile && (
-                <button
-                  onClick={() => setShowContacts(true)}
-                  className="text-gray-500"
-                >
-                  Back
-                </button>
-              )}
-              <img
-                src={selectedContact.avatar}
-                alt={selectedContact.name}
-                className="h-10 w-10 rounded-full"
-              />
-              <div>
-                <h2 className="font-medium">{selectedContact.name}</h2>
-                <span className="text-sm text-[#9b87f5]">AI Version</span>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {messages.map((message) => (
-                <ChatBubble
-                  key={message.id}
-                  message={message.text}
-                  timestamp={message.timestamp}
-                  isSent={message.sent}
-                />
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
+            <ChatHeader
+              contact={selectedContact}
+              onBack={() => setShowContacts(true)}
+              isMobile={isMobile}
+            />
+            <MessageList messages={messages} />
             <ChatInput onSendMessage={handleSendMessage} />
           </>
         ) : (
