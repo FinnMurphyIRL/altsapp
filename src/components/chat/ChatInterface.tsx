@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 interface Message {
   id: string;
@@ -28,7 +30,7 @@ export const ChatInterface = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const isMobile = useIsMobile();
   const [showContacts, setShowContacts] = useState(!isMobile);
-  const [hasUploadedHistory, setHasUploadedHistory] = useState(false);
+  const [showUploadFlow, setShowUploadFlow] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export const ChatInterface = () => {
     };
 
     loadContacts();
-  }, [hasUploadedHistory]);
+  }, [showUploadFlow]);
 
   const loadMessages = async (chatHistoryId: string) => {
     const { data: messages } = await supabase
@@ -154,8 +156,16 @@ export const ChatInterface = () => {
     }
   };
 
-  if (!hasUploadedHistory) {
-    return <OnboardingFlow onComplete={() => setHasUploadedHistory(true)} />;
+  const handleUploadComplete = () => {
+    setShowUploadFlow(false);
+  };
+
+  if (!contacts.length && !showUploadFlow) {
+    return <OnboardingFlow onComplete={handleUploadComplete} />;
+  }
+
+  if (showUploadFlow) {
+    return <OnboardingFlow onComplete={handleUploadComplete} />;
   }
 
   return (
@@ -166,11 +176,23 @@ export const ChatInterface = () => {
           !showContacts && "hidden md:block"
         )}
       >
-        <ContactList
-          contacts={contacts}
-          onSelectContact={handleSelectContact}
-          selectedContactId={selectedContact?.id}
-        />
+        <div className="flex h-full flex-col">
+          <div className="p-4">
+            <Button
+              onClick={() => setShowUploadFlow(true)}
+              className="w-full"
+              variant="outline"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add More Alts
+            </Button>
+          </div>
+          <ContactList
+            contacts={contacts}
+            onSelectContact={handleSelectContact}
+            selectedContactId={selectedContact?.id}
+          />
+        </div>
       </div>
 
       <div
