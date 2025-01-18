@@ -19,17 +19,26 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
 
   useEffect(() => {
     const loadUserPreferences = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: preferences } = await supabase
-        .from('user_preferences')
-        .select('display_name')
-        .eq('user_id', user.id)
-        .single();
+        const { data: preferences, error } = await supabase
+          .from('user_preferences')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (preferences) {
-        setDisplayName(preferences.display_name);
+        if (error) {
+          console.error('Error fetching preferences:', error);
+          return;
+        }
+
+        if (preferences) {
+          setDisplayName(preferences.display_name);
+        }
+      } catch (error) {
+        console.error('Error in loadUserPreferences:', error);
       }
     };
 
