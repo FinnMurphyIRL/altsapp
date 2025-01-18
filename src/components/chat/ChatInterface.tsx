@@ -4,6 +4,7 @@ import { ContactList } from "./ContactList";
 import { ChatBubble } from "./ChatBubble";
 import { ChatInput } from "./ChatInput";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 const MOCK_CONTACTS: Contact[] = [
   {
