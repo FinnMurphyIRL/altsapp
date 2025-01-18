@@ -26,13 +26,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Fetch more chat history for better context
     const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
       .order('timestamp', { ascending: true })
-      .limit(2000) // Increased from 20 to 2000 for much more context
+      .limit(2000)
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
@@ -41,15 +40,13 @@ serve(async (req) => {
 
     console.log('Retrieved messages:', messages)
 
-    // Analyze message patterns and style
+    // Analyze message patterns and style without including names
     const participantMessages = messages
       ?.filter(msg => msg.sender_name === participantName)
       .map(msg => msg.content) || []
 
-    // Create a more detailed prompt that captures personality
-    const chatHistory = messages?.map(msg => 
-      `${msg.sender_name}: ${msg.content}`
-    ).join('\n') || ''
+    // Create chat history without names at the start of messages
+    const chatHistory = messages?.map(msg => msg.content).join('\n') || ''
 
     const prompt = `You are ${participantName}. Based on the following chat history, you've demonstrated these communication patterns:
 
@@ -67,7 +64,8 @@ Important guidelines:
 - Keep responses concise and natural
 - Maintain consistent knowledge and opinions
 - Use similar language patterns and expressions
-- Stay in character at all times`
+- Stay in character at all times
+- Do not start your response with your name`
 
     console.log('Sending prompt to OpenAI:', prompt)
 
@@ -82,7 +80,7 @@ Important guidelines:
         messages: [
           { 
             role: 'system', 
-            content: 'You are an AI trained to respond like a specific person based on their chat history. Focus on maintaining consistent personality traits, knowledge, and communication style.'
+            content: 'You are an AI trained to respond like a specific person based on their chat history. Focus on maintaining consistent personality traits, knowledge, and communication style. Never start responses with the name of the person you are impersonating.'
           },
           { role: 'user', content: prompt }
         ],
