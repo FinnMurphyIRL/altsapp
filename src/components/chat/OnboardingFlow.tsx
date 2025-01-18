@@ -12,6 +12,18 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upload chat histories.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUploading(true);
     try {
       // Upload file to Supabase Storage
@@ -24,12 +36,13 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
 
       if (uploadError) throw uploadError;
 
-      // Create database record
+      // Create database record with user_id
       const { error: dbError } = await supabase
         .from('chat_history_uploads')
         .insert({
           filename: file.name,
           file_path: filePath,
+          user_id: user.id,
         });
 
       if (dbError) throw dbError;
@@ -63,8 +76,8 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>How to Export Your WhatsApp Chat History</AlertDialogTitle>
-              <AlertDialogDescription className="space-y-4">
-                <p>Follow these steps to export your chat history:</p>
+              <AlertDialogDescription>
+                <p className="mb-4">Follow these steps to export your chat history:</p>
                 <ol className="list-decimal space-y-2 pl-4">
                   <li>Open WhatsApp on your phone</li>
                   <li>Open the chat you want to export</li>
