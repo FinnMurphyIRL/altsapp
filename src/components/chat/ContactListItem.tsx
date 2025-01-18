@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export interface Contact {
   id: string;
@@ -15,6 +16,15 @@ interface ContactListItemProps {
   onClick: () => void;
 }
 
+const getInitials = (name: string) => {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+};
+
 export const ContactListItem = ({
   contact,
   isSelected,
@@ -29,11 +39,11 @@ export const ContactListItem = ({
       )}
     >
       <div className="relative">
-        <img
-          src={contact.avatar}
-          alt={contact.name}
-          className="h-12 w-12 rounded-full object-cover"
-        />
+        <Avatar className="h-12 w-12">
+          <AvatarFallback className="bg-primary text-primary-foreground">
+            {getInitials(contact.name)}
+          </AvatarFallback>
+        </Avatar>
         {contact.online && (
           <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-whatsapp-primary" />
         )}
