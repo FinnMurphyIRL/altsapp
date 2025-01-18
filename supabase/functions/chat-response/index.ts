@@ -26,6 +26,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // First, get all messages from the chat history
     const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
@@ -38,22 +39,26 @@ serve(async (req) => {
       throw new Error('Failed to fetch chat history')
     }
 
-    console.log('Retrieved messages:', messages)
+    console.log(`Retrieved ${messages?.length} messages from chat history`)
 
-    // Analyze message patterns and style without including names
+    // Get participant's messages to analyze their style
     const participantMessages = messages
       ?.filter(msg => msg.sender_name === participantName)
       .map(msg => msg.content) || []
 
-    // Create chat history without names at the start of messages
-    const chatHistory = messages?.map(msg => msg.content).join('\n') || ''
+    console.log(`Found ${participantMessages.length} messages from ${participantName}`)
 
-    const prompt = `You are ${participantName}. Based on the following chat history, you've demonstrated these communication patterns:
+    // Create chat history context without names
+    const chatHistory = messages
+      ?.map(msg => msg.content)
+      .join('\n') || ''
+
+    const prompt = `You are ${participantName}. Based on the following chat history that was uploaded and includes all subsequent messages, you've demonstrated these communication patterns:
 
 ${participantMessages.length > 0 ? `Here are some examples of how you typically communicate:
-${participantMessages.slice(0, 3).join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
+${participantMessages.slice(0, 5).join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
 
-Chat history:
+Complete chat history (including the original uploaded chat and new messages):
 ${chatHistory}
 
 Now respond to this message as ${participantName}, maintaining consistency with your previous communication style, personality traits, and knowledge shown in the chat history:
@@ -67,7 +72,7 @@ Important guidelines:
 - Stay in character at all times
 - Do not start your response with your name`
 
-    console.log('Sending prompt to OpenAI:', prompt)
+    console.log('Sending prompt to OpenAI with full chat history context')
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -102,7 +107,7 @@ Important guidelines:
     }
 
     const data = await response.json()
-    console.log('OpenAI response:', data)
+    console.log('Received response from OpenAI')
 
     if (!data.choices?.[0]?.message?.content) {
       console.error('Unexpected OpenAI response format:', data)
