@@ -82,7 +82,7 @@ Keep your response concise and natural, maintaining the same tone and style as s
       
       // Check for specific OpenAI errors
       if (errorData.error?.message?.includes('exceeded your current quota')) {
-        throw new Error('OpenAI API quota exceeded. Please check your billing details.')
+        throw new Error('OpenAI API quota exceeded. Please add billing information or wait for quota reset.')
       } else if (errorData.error?.message?.includes('invalid_api_key')) {
         throw new Error('Invalid OpenAI API key. Please check your configuration.')
       } else {
@@ -93,7 +93,7 @@ Keep your response concise and natural, maintaining the same tone and style as s
     const data = await response.json()
     console.log('OpenAI response:', data)
 
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+    if (!data.choices?.[0]?.message?.content) {
       console.error('Unexpected OpenAI response format:', data)
       throw new Error('Invalid response format from OpenAI')
     }
