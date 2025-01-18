@@ -32,7 +32,7 @@ serve(async (req) => {
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
       .order('timestamp', { ascending: true })
-      .limit(20) // Increased from 10 to 20 for more context
+      .limit(2000) // Increased from 20 to 2000 for much more context
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
@@ -78,7 +78,7 @@ Important guidelines:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Using the more powerful model for better personality matching
+        model: 'gpt-4o',
         messages: [
           { 
             role: 'system', 
@@ -86,7 +86,7 @@ Important guidelines:
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.9, // Slightly increased for more personality variation while staying in character
+        temperature: 0.9,
       }),
     })
 
