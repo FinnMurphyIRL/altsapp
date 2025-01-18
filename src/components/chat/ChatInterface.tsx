@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ export const ChatInterface = () => {
   const isMobile = useIsMobile();
   const [showContacts, setShowContacts] = useState(!isMobile);
   const [hasUploadedHistory, setHasUploadedHistory] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -93,7 +95,7 @@ export const ChatInterface = () => {
 
     setMessages((prev) => [...prev, newMessage]);
 
-    // Store message in database
+    // Store user message in database
     await supabase.from('chat_messages').insert({
       chat_history_id: selectedContact.chatHistoryId,
       sender_name: "You",
@@ -101,11 +103,21 @@ export const ChatInterface = () => {
       timestamp: new Date().toISOString(),
     });
 
-    // Simulate AI response
-    setTimeout(async () => {
+    try {
+      // Get AI response
+      const { data, error } = await supabase.functions.invoke('chat-response', {
+        body: {
+          chatHistoryId: selectedContact.chatHistoryId,
+          currentMessage: text,
+          participantName: selectedContact.name,
+        },
+      });
+
+      if (error) throw error;
+
       const aiResponse: Message = {
         id: Date.now().toString(),
-        text: `Hi! I'm the AI version of ${selectedContact.name}. I'm learning from our chat history to respond like them!`,
+        text: data.response,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -115,13 +127,21 @@ export const ChatInterface = () => {
 
       setMessages((prev) => [...prev, aiResponse]);
 
+      // Store AI response in database
       await supabase.from('chat_messages').insert({
         chat_history_id: selectedContact.chatHistoryId,
         sender_name: selectedContact.name,
-        content: aiResponse.text,
+        content: data.response,
         timestamp: new Date().toISOString(),
       });
-    }, 1000);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      toast({
+        title: "Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSelectContact = async (contact: Contact) => {
