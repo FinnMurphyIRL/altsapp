@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
@@ -14,34 +14,65 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
   const [showInstructions, setShowInstructions] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showParticipantSelector, setShowParticipantSelector] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('display_name')
+        .eq('user_id', user.id)
+        .single();
+
+      if (preferences) {
+        setDisplayName(preferences.display_name);
+      }
+    };
+
+    loadUserPreferences();
+  }, []);
 
   const processAndUploadChat = async (file: File, participants: Participant[]) => {
     const reader = new FileReader();
     
     reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n');
-      const messages: { sender: string; content: string; timestamp: string }[] = [];
-      
-      // Basic WhatsApp chat format parsing
-      const messageRegex = /\[?(\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)\]?\s*-\s*([^:]+):\s*(.+)/;
-      
-      lines.forEach(line => {
-        const match = line.match(messageRegex);
-        if (match) {
-          const [_, timestamp, sender, content] = match;
-          messages.push({
-            sender: sender.trim(),
-            content: content.trim(),
-            timestamp: new Date(timestamp).toISOString(),
-          });
-        }
-      });
-
       try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n');
+        const messages: { sender: string; content: string; timestamp: string }[] = [];
+        
+        // Basic WhatsApp chat format parsing
+        const messageRegex = /\[?(\d{1,2}\/\d{1,2}\/\d{2,4},\s*\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)\]?\s*-\s*([^:]+):\s*(.+)/;
+        
+        lines.forEach(line => {
+          const match = line.match(messageRegex);
+          if (match) {
+            const [_, timestamp, sender, content] = match;
+            messages.push({
+              sender: sender.trim(),
+              content: content.trim(),
+              timestamp: new Date(timestamp).toISOString(),
+            });
+          }
+        });
+
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated");
+
+        // Store display name if not already stored
+        if (!displayName) {
+          const uploaderName = participants.find(p => p.isUploader)?.name;
+          if (uploaderName) {
+            await supabase.from('user_preferences').insert({
+              user_id: user.id,
+              display_name: uploaderName,
+            });
+          }
+        }
 
         // Upload file to storage
         const fileExt = file.name.split('.').pop();
@@ -116,6 +147,17 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    
+    // Validate file type
+    if (file.type !== 'text/plain') {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a .txt file exported from WhatsApp.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedFile(file);
     setShowParticipantSelector(true);
   };
@@ -159,7 +201,10 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
         </AlertDialog>
 
         {showParticipantSelector ? (
-          <ParticipantSelector onParticipantsSelected={handleParticipantsSelected} />
+          <ParticipantSelector 
+            onParticipantsSelected={handleParticipantsSelected}
+            defaultUploaderName={displayName}
+          />
         ) : (
           <div className="space-y-4">
             <div className="rounded-lg border-2 border-dashed border-gray-300 p-6">

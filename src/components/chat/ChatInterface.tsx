@@ -8,9 +8,10 @@ import { OnboardingFlow } from "./OnboardingFlow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, LogOut } from "lucide-react";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
+import { useNavigate } from "react-router-dom";
 
 interface Message {
   id: string;
@@ -27,6 +28,7 @@ export const ChatInterface = () => {
   const [showContacts, setShowContacts] = useState(!isMobile);
   const [showUploadFlow, setShowUploadFlow] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -54,6 +56,11 @@ export const ChatInterface = () => {
 
     loadContacts();
   }, [showUploadFlow]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/auth');
+  };
 
   const loadMessages = async (chatHistoryId: string) => {
     const { data: messages } = await supabase
@@ -172,14 +179,22 @@ export const ChatInterface = () => {
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="p-4">
+          <div className="flex items-center justify-between p-4">
             <Button
               onClick={() => setShowUploadFlow(true)}
-              className="w-full"
+              className="flex-1 mr-2"
               variant="outline"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add More Alts
+            </Button>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              size="icon"
+              className="text-gray-500"
+            >
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
           <ContactList
