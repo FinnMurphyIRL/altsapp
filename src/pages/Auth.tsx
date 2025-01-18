@@ -2,15 +2,21 @@ import { Auth as SupabaseAuth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AuthError } from "@supabase/supabase-js";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         navigate("/");
+      }
+      if (event === 'SIGNED_OUT') {
+        setErrorMessage(""); // Clear errors on sign out
       }
     });
 
@@ -25,6 +31,11 @@ const Auth = () => {
           <p className="text-gray-600">Your Friends and Group Chats (sort of)</p>
         </div>
         <div className="bg-white p-8 rounded-lg shadow-md">
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
           <SupabaseAuth 
             supabaseClient={supabase}
             appearance={{
@@ -38,6 +49,8 @@ const Auth = () => {
                 },
               },
             }}
+            providers={[]}
+            view="sign_in"
           />
         </div>
       </div>
