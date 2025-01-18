@@ -9,7 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      chat_history_uploads: {
+        Row: {
+          file_path: string
+          filename: string
+          id: string
+          processed: boolean | null
+          uploaded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          file_path: string
+          filename: string
+          id?: string
+          processed?: boolean | null
+          uploaded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          file_path?: string
+          filename?: string
+          id?: string
+          processed?: boolean | null
+          uploaded_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

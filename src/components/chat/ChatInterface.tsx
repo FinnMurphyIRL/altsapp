@@ -5,6 +5,7 @@ import { ChatBubble } from "./ChatBubble";
 import { ChatInput } from "./ChatInput";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { OnboardingFlow } from "./OnboardingFlow";
 
 const MOCK_CONTACTS: Contact[] = [
   {
@@ -42,6 +43,7 @@ export const ChatInterface = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const isMobile = useIsMobile();
   const [showContacts, setShowContacts] = useState(!isMobile);
+  const [hasUploadedHistory, setHasUploadedHistory] = useState(false);
 
   const handleSendMessage = (text: string) => {
     const newMessage: Message = {
@@ -63,6 +65,10 @@ export const ChatInterface = () => {
       setShowContacts(false);
     }
   };
+
+  if (!hasUploadedHistory) {
+    return <OnboardingFlow onComplete={() => setHasUploadedHistory(true)} />;
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-100">
