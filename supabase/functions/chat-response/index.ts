@@ -31,7 +31,7 @@ serve(async (req) => {
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
       .order('timestamp', { ascending: true })
-      .limit(2000)
+      .limit(10000)
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
