@@ -140,6 +140,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
           description: "Your chat history has been processed and uploaded.",
         });
         
+        // Call onComplete to trigger navigation and UI update
         onComplete();
       } catch (error) {
         console.error('Upload error:', error);

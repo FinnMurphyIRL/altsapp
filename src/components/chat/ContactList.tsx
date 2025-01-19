@@ -31,7 +31,10 @@ export const ContactList = ({
   const handleCreateNewChat = async (participantName: string) => {
     const newContact = await createNewConversation(participantName);
     if (newContact) {
+      // Immediately select the new contact to trigger navigation
       onSelectContact(newContact);
+      // Clear the search query after creating a new chat
+      setSearchQuery("");
     }
   };
 
