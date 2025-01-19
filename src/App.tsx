@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import EmailConfirmed from "./pages/EmailConfirmed";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/email-confirmed" element={<EmailConfirmed />} />
           <Route path="/" element={
             <ProtectedRoute>
               <Index />
