@@ -58,12 +58,13 @@ export const useContacts = () => {
           processed: true
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (chatError) throw chatError;
+      if (!chatHistory) throw new Error('Failed to create chat history');
 
       // Add participants
-      const { data: participants, error: participantsError } = await supabase
+      const { data: participant, error: participantsError } = await supabase
         .from('chat_participants')
         .insert([
           {
@@ -80,12 +81,14 @@ export const useContacts = () => {
           }
         ])
         .select()
-        .single();
+        .eq('is_uploader', false)
+        .maybeSingle();
 
       if (participantsError) throw participantsError;
+      if (!participant) throw new Error('Failed to create participant');
 
       const newContact: Contact = {
-        id: participants.id,
+        id: participant.id,
         name: participantName,
         avatar: "/placeholder.svg",
         lastMessage: "",
