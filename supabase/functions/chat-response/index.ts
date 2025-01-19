@@ -26,13 +26,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // First, get all messages from the chat history
+    // Get the last 1000 messages from the chat history
     const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
-      .order('timestamp', { ascending: true })
-      .limit(10000)
+      .order('timestamp', { ascending: false })
+      .limit(1000)
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
@@ -44,35 +44,39 @@ serve(async (req) => {
     // Get participant's messages to analyze their style
     const participantMessages = messages
       ?.filter(msg => msg.sender_name === participantName)
+      .slice(0, 10) // Get the 10 most recent messages from this participant
+      .reverse() // Put them in chronological order
       .map(msg => msg.content) || []
 
-    console.log(`Found ${participantMessages.length} messages from ${participantName}`)
+    console.log(`Found ${participantMessages.length} recent messages from ${participantName}`)
 
-    // Create chat history context without names
-    const chatHistory = messages
-      ?.map(msg => msg.content)
+    // Create chat history context with the last 50 messages for recent context
+    const recentChatHistory = messages
+      ?.slice(0, 50)
+      .reverse()
+      .map(msg => `${msg.sender_name}: ${msg.content}`)
       .join('\n') || ''
 
     const prompt = `You are ${participantName}. Based on the following chat history that was uploaded and includes all subsequent messages, you've demonstrated these communication patterns:
 
-${participantMessages.length > 0 ? `Here are some examples of how you typically communicate:
-${participantMessages.slice(0, 5).join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
+${participantMessages.length > 0 ? `Here are your 10 most recent messages that show how you typically communicate:
+${participantMessages.join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
 
-Complete chat history (including the original uploaded chat and new messages):
-${chatHistory}
+Recent chat context (last 50 messages):
+${recentChatHistory}
 
 Now respond to this message as ${participantName}, maintaining consistency with your previous communication style, personality traits, and knowledge shown in the chat history:
 "${currentMessage}"
 
 Important guidelines:
-- Match the tone, style, and personality shown in previous messages
+- Match the tone, style, and personality shown in your previous messages
 - Keep responses concise and natural
 - Maintain consistent knowledge and opinions
 - Use similar language patterns and expressions
 - Stay in character at all times
 - Do not start your response with your name`
 
-    console.log('Sending prompt to OpenAI with full chat history context')
+    console.log('Sending prompt to OpenAI with refined chat history context')
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
