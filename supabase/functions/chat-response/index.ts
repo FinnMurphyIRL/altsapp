@@ -26,55 +26,71 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the last 1000 messages from the chat history
+    // Get ALL messages from the chat history
     const { data: messages, error: messagesError } = await supabaseClient
       .from('chat_messages')
       .select('sender_name, content, timestamp')
       .eq('chat_history_id', chatHistoryId)
-      .order('timestamp', { ascending: false })
-      .limit(1000)
+      .order('timestamp', { ascending: true })
 
     if (messagesError) {
       console.error('Error fetching messages:', messagesError)
       throw new Error('Failed to fetch chat history')
     }
 
-    console.log(`Retrieved ${messages?.length} messages from chat history`)
+    console.log(`Retrieved ${messages?.length} total messages from chat history`)
 
-    // Get all messages from the participant to analyze their style (up to 1000)
+    // Get ALL messages from the participant to analyze their style
     const participantMessages = messages
       ?.filter(msg => msg.sender_name === participantName)
       .map(msg => msg.content) || []
 
     console.log(`Found ${participantMessages.length} messages from ${participantName} for style analysis`)
 
-    // Create chat history context with the last 50 messages for recent context
+    // Create recent chat context with the last 20 messages for immediate context
     const recentChatHistory = messages
-      ?.slice(0, 50)
-      .reverse()
+      ?.slice(-20)
       .map(msg => `${msg.sender_name}: ${msg.content}`)
       .join('\n') || ''
 
-    const prompt = `You are ${participantName}. Based on the following chat history that was uploaded and includes all subsequent messages, you've demonstrated these communication patterns:
+    // Analyze message patterns
+    const messagePatterns = analyzeMessagePatterns(participantMessages)
+    console.log('Analyzed message patterns:', messagePatterns)
 
-${participantMessages.length > 0 ? `Here are your messages that show how you typically communicate:
-${participantMessages.join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
+    const prompt = `You are ${participantName}. Based on the following comprehensive analysis of your communication style from ${participantMessages.length} messages:
 
-Recent chat context (last 50 messages):
+Style Analysis:
+- Average message length: ${messagePatterns.avgLength} words
+- Typical punctuation usage: ${messagePatterns.punctuation}
+- Common expressions: ${messagePatterns.commonPhrases.join(', ')}
+- Emoji usage: ${messagePatterns.emojiUsage}
+- Formality level: ${messagePatterns.formalityLevel}
+
+Here are examples of how you typically communicate:
+${participantMessages.slice(-50).join('\n')}
+
+Recent conversation context (last 20 messages):
 ${recentChatHistory}
 
-Now respond to this message as ${participantName}, maintaining consistency with your previous communication style, personality traits, and knowledge shown in the chat history:
-"${currentMessage}"
+Now respond to this message as ${participantName}, strictly maintaining:
+1. Your typical message length and structure
+2. Your unique expressions and vocabulary
+3. Your characteristic punctuation patterns
+4. Your emoji usage habits
+5. Your level of formality
+6. Your conversational quirks and patterns
 
-Important guidelines:
-- Match the tone, style, and personality shown in your previous messages
-- Keep responses concise and natural
-- Maintain consistent knowledge and opinions
-- Use similar language patterns and expressions
-- Stay in character at all times
-- Do not start your response with your name`
+Respond to: "${currentMessage}"
 
-    console.log('Sending prompt to OpenAI with comprehensive chat history context')
+Important:
+- Match your exact communication style from the examples
+- Maintain consistent personality traits
+- Use your common phrases naturally
+- Keep the same tone and formality level
+- Do not explain or break character
+- Do not start with your name`
+
+    console.log('Sending enhanced prompt to OpenAI with comprehensive style analysis')
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -87,7 +103,7 @@ Important guidelines:
         messages: [
           { 
             role: 'system', 
-            content: 'You are an AI trained to respond like a specific person based on their chat history. Focus on maintaining consistent personality traits, knowledge, and communication style. Never start responses with the name of the person you are impersonating.'
+            content: 'You are an AI trained to precisely mimic a specific person\'s communication style based on their chat history. Focus on maintaining exact message length, punctuation patterns, expressions, and personality traits. Never break character or explain your responses.'
           },
           { role: 'user', content: prompt }
         ],
@@ -133,3 +149,87 @@ Important guidelines:
     )
   }
 })
+
+// Helper function to analyze message patterns
+function analyzeMessagePatterns(messages: string[]) {
+  const wordCounts = messages.map(msg => msg.split(' ').length)
+  const avgLength = Math.round(wordCounts.reduce((a, b) => a + b, 0) / messages.length)
+
+  // Analyze punctuation patterns
+  const punctuationCount = messages.reduce((acc, msg) => {
+    const exclamations = (msg.match(/!/g) || []).length
+    const questions = (msg.match(/\?/g) || []).length
+    const ellipsis = (msg.match(/\.\.\./g) || []).length
+    return { exclamations, questions, ellipsis }
+  }, { exclamations: 0, questions: 0, ellipsis: 0 })
+
+  // Find common phrases (3+ words)
+  const commonPhrases = findCommonPhrases(messages)
+
+  // Analyze emoji usage
+  const emojiCount = messages.reduce((count, msg) => {
+    return count + (msg.match(/[\p{Emoji}]/gu) || []).length
+  }, 0)
+  const emojiUsage = emojiCount / messages.length > 0.5 ? 'frequent' : 
+                     emojiCount / messages.length > 0.2 ? 'moderate' : 'rare'
+
+  // Analyze formality
+  const formalityLevel = analyzeFormalityLevel(messages)
+
+  return {
+    avgLength,
+    punctuation: `${punctuationCount.exclamations > messages.length / 2 ? 'frequent' : 'occasional'} exclamations, ` +
+                 `${punctuationCount.questions > messages.length / 3 ? 'frequent' : 'occasional'} questions, ` +
+                 `${punctuationCount.ellipsis > messages.length / 4 ? 'frequent' : 'rare'} ellipsis`,
+    commonPhrases: commonPhrases.slice(0, 5),
+    emojiUsage,
+    formalityLevel
+  }
+}
+
+function findCommonPhrases(messages: string[], minWords = 3): string[] {
+  const phrases: { [key: string]: number } = {}
+  
+  messages.forEach(msg => {
+    const words = msg.toLowerCase().split(' ')
+    for (let i = 0; i <= words.length - minWords; i++) {
+      const phrase = words.slice(i, i + minWords).join(' ')
+      phrases[phrase] = (phrases[phrase] || 0) + 1
+    }
+  })
+
+  return Object.entries(phrases)
+    .filter(([_, count]) => count > 1)
+    .sort(([_, a], [__, b]) => b - a)
+    .map(([phrase]) => phrase)
+    .slice(0, 5)
+}
+
+function analyzeFormalityLevel(messages: string[]): string {
+  const formalIndicators = [
+    'would you', 'could you', 'please', 'thank you', 'regards',
+    'sincerely', 'appreciate', 'kindly'
+  ]
+  const informalIndicators = [
+    'hey', 'yeah', 'cool', 'gonna', 'wanna', 'dunno', 'lol', 
+    'haha', 'wtf', 'omg', 'ur', 'u', 'r'
+  ]
+
+  let formalCount = 0
+  let informalCount = 0
+
+  messages.forEach(msg => {
+    const lowerMsg = msg.toLowerCase()
+    formalIndicators.forEach(word => {
+      if (lowerMsg.includes(word)) formalCount++
+    })
+    informalIndicators.forEach(word => {
+      if (lowerMsg.includes(word)) informalCount++
+    })
+  })
+
+  if (formalCount > informalCount * 2) return 'very formal'
+  if (formalCount > informalCount) return 'somewhat formal'
+  if (informalCount > formalCount * 2) return 'very casual'
+  return 'casual'
+}
