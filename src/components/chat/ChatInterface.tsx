@@ -171,18 +171,18 @@ export const ChatInterface = () => {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-100">
+    <div className="flex h-[100vh] w-full overflow-hidden bg-gray-100">
       <div
         className={cn(
-          "h-full w-full transition-all duration-300 md:w-96",
+          "h-full transition-all duration-300 md:w-96 w-full",
           !showContacts && "hidden md:block"
         )}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between p-4">
+          <div className="flex items-center justify-between p-3">
             <Button
               onClick={() => setShowUploadFlow(true)}
-              className="flex-1 mr-2"
+              className="flex-1 mr-2 text-sm"
               variant="outline"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -222,7 +222,7 @@ export const ChatInterface = () => {
             <ChatInput onSendMessage={handleSendMessage} />
           </>
         ) : (
-          <div className="flex h-full items-center justify-center">
+          <div className="flex h-full items-center justify-center p-4 text-center">
             <p className="text-gray-500">Select a contact to start chatting</p>
           </div>
         )}
