@@ -64,7 +64,7 @@ export const useContacts = () => {
       if (!chatHistory) throw new Error('Failed to create chat history');
 
       // Add participants
-      const { data: participant, error: participantsError } = await supabase
+      const { data: participants, error: participantsError } = await supabase
         .from('chat_participants')
         .insert([
           {
@@ -80,12 +80,14 @@ export const useContacts = () => {
             is_uploader: false
           }
         ])
-        .select()
-        .eq('is_uploader', false)
-        .maybeSingle();
+        .select();
 
       if (participantsError) throw participantsError;
-      if (!participant) throw new Error('Failed to create participant');
+      if (!participants || participants.length < 2) throw new Error('Failed to create participants');
+
+      // Find the non-uploader participant
+      const participant = participants.find(p => !p.is_uploader);
+      if (!participant) throw new Error('Could not find participant record');
 
       const newContact: Contact = {
         id: participant.id,
