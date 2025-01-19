@@ -41,14 +41,12 @@ serve(async (req) => {
 
     console.log(`Retrieved ${messages?.length} messages from chat history`)
 
-    // Get participant's messages to analyze their style
+    // Get all messages from the participant to analyze their style (up to 1000)
     const participantMessages = messages
       ?.filter(msg => msg.sender_name === participantName)
-      .slice(0, 10) // Get the 10 most recent messages from this participant
-      .reverse() // Put them in chronological order
       .map(msg => msg.content) || []
 
-    console.log(`Found ${participantMessages.length} recent messages from ${participantName}`)
+    console.log(`Found ${participantMessages.length} messages from ${participantName} for style analysis`)
 
     // Create chat history context with the last 50 messages for recent context
     const recentChatHistory = messages
@@ -59,7 +57,7 @@ serve(async (req) => {
 
     const prompt = `You are ${participantName}. Based on the following chat history that was uploaded and includes all subsequent messages, you've demonstrated these communication patterns:
 
-${participantMessages.length > 0 ? `Here are your 10 most recent messages that show how you typically communicate:
+${participantMessages.length > 0 ? `Here are your messages that show how you typically communicate:
 ${participantMessages.join('\n')}` : 'This is a new conversation, but maintain a natural, friendly tone.'}
 
 Recent chat context (last 50 messages):
@@ -76,7 +74,7 @@ Important guidelines:
 - Stay in character at all times
 - Do not start your response with your name`
 
-    console.log('Sending prompt to OpenAI with refined chat history context')
+    console.log('Sending prompt to OpenAI with comprehensive chat history context')
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
