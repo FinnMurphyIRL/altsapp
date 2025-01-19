@@ -1,61 +1,47 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Contact } from "./ContactListItem";
-import { ContactList } from "./ContactList";
-import { ChatInput } from "./ChatInput";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { OnboardingFlow } from "./OnboardingFlow";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { Button } from "@/components/ui/button";
-import { Plus, LogOut } from "lucide-react";
-import { ChatHeader } from "./ChatHeader";
-import { MessageList } from "./MessageList";
 import { useNavigate } from "react-router-dom";
-
-interface Message {
-  id: string;
-  text: string;
-  timestamp: string;
-  sent: boolean;
-}
+import { ContactSidebar } from "./ContactSidebar";
+import { ChatView } from "./ChatView";
+import { useContacts } from "@/hooks/useContacts";
+import { useMessages } from "@/hooks/useMessages";
 
 export const ChatInterface = () => {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [showUploadFlow, setShowUploadFlow] = useState(false);
   const isMobile = useIsMobile();
   const [showContacts, setShowContacts] = useState(!isMobile);
-  const [showUploadFlow, setShowUploadFlow] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { contacts, setContacts } = useContacts();
+  const { messages, loadMessages, sendMessage } = useMessages(selectedContact);
 
   const handleDeleteConversation = async () => {
     if (!selectedContact?.chatHistoryId) return;
 
     try {
-      // Delete chat messages
       await supabase
         .from('chat_messages')
         .delete()
         .eq('chat_history_id', selectedContact.chatHistoryId);
 
-      // Delete chat participants
       await supabase
         .from('chat_participants')
         .delete()
         .eq('chat_history_id', selectedContact.chatHistoryId);
 
-      // Delete chat history upload
       await supabase
         .from('chat_history_uploads')
         .delete()
         .eq('id', selectedContact.chatHistoryId);
 
-      // Update local state
       setContacts(contacts.filter(c => c.id !== selectedContact.id));
       setSelectedContact(null);
-      setMessages([]);
 
       toast({
         title: "Conversation deleted",
@@ -71,122 +57,9 @@ export const ChatInterface = () => {
     }
   };
 
-  useEffect(() => {
-    const loadContacts = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: participants } = await supabase
-        .from('chat_participants')
-        .select('*, chat_history_uploads(id)')
-        .eq('user_id', user.id)
-        .eq('is_uploader', false);
-
-      if (participants) {
-        const contactsList: Contact[] = participants.map((p) => ({
-          id: p.id,
-          name: p.participant_name,
-          avatar: "/placeholder.svg",
-          lastMessage: "",
-          online: false,
-          chatHistoryId: p.chat_history_uploads.id
-        }));
-        setContacts(contactsList);
-      }
-    };
-
-    loadContacts();
-  }, [showUploadFlow]);
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/auth');
-  };
-
-  const loadMessages = async (chatHistoryId: string) => {
-    const { data: messages } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('chat_history_id', chatHistoryId)
-      .order('timestamp', { ascending: true });
-
-    if (messages) {
-      setMessages(
-        messages.map((m) => ({
-          id: m.id,
-          text: m.content,
-          timestamp: new Date(m.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          sent: m.sender_name === selectedContact?.name,
-        }))
-      );
-    }
-  };
-
-  const handleSendMessage = async (text: string) => {
-    if (!selectedContact?.chatHistoryId) return;
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text,
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      sent: true,
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-
-    try {
-      // Store user message in database
-      await supabase.from('chat_messages').insert({
-        chat_history_id: selectedContact.chatHistoryId,
-        sender_name: "You",
-        content: text,
-        timestamp: new Date().toISOString(),
-      });
-
-      // Get AI response
-      const { data, error } = await supabase.functions.invoke('chat-response', {
-        body: {
-          chatHistoryId: selectedContact.chatHistoryId,
-          currentMessage: text,
-          participantName: selectedContact.name,
-        },
-      });
-
-      if (error) throw error;
-
-      const aiResponse: Message = {
-        id: Date.now().toString(),
-        text: data.response,
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        sent: false,
-      };
-
-      setMessages((prev) => [...prev, aiResponse]);
-
-      // Store AI response in database
-      await supabase.from('chat_messages').insert({
-        chat_history_id: selectedContact.chatHistoryId,
-        sender_name: selectedContact.name,
-        content: data.response,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error getting AI response:', error);
-      toast({
-        title: "Error",
-        description: "Failed to get AI response. Please try again.",
-        variant: "destructive",
-      });
-    }
   };
 
   const handleSelectContact = async (contact: Contact) => {
@@ -213,38 +86,14 @@ export const ChatInterface = () => {
 
   return (
     <div className="flex h-[100vh] w-full overflow-hidden bg-gray-100">
-      <div
-        className={cn(
-          "h-full transition-all duration-300 md:w-96 w-full",
-          !showContacts && "hidden md:block"
-        )}
-      >
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between p-3">
-            <Button
-              onClick={() => setShowUploadFlow(true)}
-              className="flex-1 mr-2 text-sm"
-              variant="outline"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add More Alts
-            </Button>
-            <Button
-              onClick={handleLogout}
-              variant="ghost"
-              size="icon"
-              className="text-gray-500"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-          <ContactList
-            contacts={contacts}
-            onSelectContact={handleSelectContact}
-            selectedContactId={selectedContact?.id}
-          />
-        </div>
-      </div>
+      <ContactSidebar
+        contacts={contacts}
+        selectedContactId={selectedContact?.id}
+        showContacts={showContacts}
+        onSelectContact={handleSelectContact}
+        onAddMore={() => setShowUploadFlow(true)}
+        onLogout={handleLogout}
+      />
 
       <div
         className={cn(
@@ -252,22 +101,14 @@ export const ChatInterface = () => {
           showContacts && "hidden md:flex"
         )}
       >
-        {selectedContact ? (
-          <>
-            <ChatHeader
-              contact={selectedContact}
-              onBack={() => setShowContacts(true)}
-              onDelete={handleDeleteConversation}
-              isMobile={isMobile}
-            />
-            <MessageList messages={messages} />
-            <ChatInput onSendMessage={handleSendMessage} />
-          </>
-        ) : (
-          <div className="flex h-full items-center justify-center p-4 text-center">
-            <p className="text-gray-500">Select a contact to start chatting</p>
-          </div>
-        )}
+        <ChatView
+          selectedContact={selectedContact}
+          messages={messages}
+          onBack={() => setShowContacts(true)}
+          onDelete={handleDeleteConversation}
+          onSendMessage={sendMessage}
+          isMobile={isMobile}
+        />
       </div>
     </div>
   );
