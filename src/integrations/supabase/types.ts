@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       chat_history_uploads: {
         Row: {
+          deleted_at: string | null
           file_path: string
           filename: string
           id: string
@@ -19,6 +20,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          deleted_at?: string | null
           file_path: string
           filename: string
           id?: string
@@ -27,6 +29,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          deleted_at?: string | null
           file_path?: string
           filename?: string
           id?: string
@@ -105,6 +108,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_participants_directory: {
+        Row: {
+          first_seen_at: string | null
+          id: string
+          participant_name: string
+          user_id: string
+        }
+        Insert: {
+          first_seen_at?: string | null
+          id?: string
+          participant_name: string
+          user_id: string
+        }
+        Update: {
+          first_seen_at?: string | null
+          id?: string
+          participant_name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_preferences: {
         Row: {

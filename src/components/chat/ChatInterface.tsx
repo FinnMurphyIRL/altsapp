@@ -18,27 +18,20 @@ export const ChatInterface = () => {
   const [showContacts, setShowContacts] = useState(!isMobile);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { contacts, setContacts } = useContacts();
+  const { contacts, setContacts, allParticipants, createNewConversation } = useContacts();
   const { messages, loadMessages, sendMessage } = useMessages(selectedContact);
 
   const handleDeleteConversation = async () => {
     if (!selectedContact?.chatHistoryId) return;
 
     try {
-      await supabase
-        .from('chat_messages')
-        .delete()
-        .eq('chat_history_id', selectedContact.chatHistoryId);
-
-      await supabase
-        .from('chat_participants')
-        .delete()
-        .eq('chat_history_id', selectedContact.chatHistoryId);
-
-      await supabase
+      // Update to use soft delete
+      const { error } = await supabase
         .from('chat_history_uploads')
-        .delete()
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', selectedContact.chatHistoryId);
+
+      if (error) throw error;
 
       setContacts(contacts.filter(c => c.id !== selectedContact.id));
       setSelectedContact(null);
