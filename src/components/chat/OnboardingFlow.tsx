@@ -50,6 +50,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
     
     reader.onload = async (e) => {
       try {
+        setIsUploading(true);
         const text = e.target?.result as string;
         const lines = text.split('\n');
         const messages: { sender: string; content: string; timestamp: string }[] = [];
@@ -87,7 +88,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
         const fileExt = file.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
         
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('chat_histories')
           .upload(filePath, file);
 
@@ -147,6 +148,8 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
           description: "There was an error processing your chat history. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsUploading(false);
       }
     };
 
@@ -173,9 +176,7 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
 
   const handleParticipantsSelected = async (participants: Participant[]) => {
     if (!selectedFile) return;
-    setIsUploading(true);
     await processAndUploadChat(selectedFile, participants);
-    setIsUploading(false);
   };
 
   return (
@@ -189,8 +190,8 @@ export const OnboardingFlow = ({ onComplete }: { onComplete: () => void }) => {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>How to Export Your WhatsApp Chat History</AlertDialogTitle>
-              <AlertDialogDescription>
-                <p className="mb-4">Follow these steps to export your chat history:</p>
+              <AlertDialogDescription className="space-y-4">
+                <p>Follow these steps to export your chat history:</p>
                 <ol className="list-decimal space-y-2 pl-4">
                   <li>Open WhatsApp on your phone</li>
                   <li>Open the chat you want to export</li>

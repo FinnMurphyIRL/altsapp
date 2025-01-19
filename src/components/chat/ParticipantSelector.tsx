@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Plus, X } from "lucide-react";
 
 interface Participant {
   name: string;
@@ -18,18 +19,39 @@ export const ParticipantSelector = ({
   defaultUploaderName
 }: ParticipantSelectorProps) => {
   const [uploaderName, setUploaderName] = useState(defaultUploaderName || "");
-  const [participantName, setParticipantName] = useState("");
+  const [participants, setParticipants] = useState<string[]>([""]);
+
+  const handleAddParticipant = () => {
+    setParticipants([...participants, ""]);
+  };
+
+  const handleRemoveParticipant = (index: number) => {
+    if (participants.length > 1) {
+      const newParticipants = [...participants];
+      newParticipants.splice(index, 1);
+      setParticipants(newParticipants);
+    }
+  };
+
+  const handleParticipantChange = (index: number, value: string) => {
+    const newParticipants = [...participants];
+    newParticipants[index] = value;
+    setParticipants(newParticipants);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploaderName || !participantName) return;
+    if (!uploaderName || participants.some(p => !p)) return;
 
-    const participants: Participant[] = [
+    const formattedParticipants: Participant[] = [
       { name: uploaderName, isUploader: true },
-      { name: participantName, isUploader: false },
+      ...participants.map(name => ({
+        name,
+        isUploader: false
+      }))
     ];
 
-    onParticipantsSelected(participants);
+    onParticipantsSelected(formattedParticipants);
   };
 
   return (
@@ -47,15 +69,37 @@ export const ParticipantSelector = ({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="participantName">Chat Partner's Name</Label>
-        <Input
-          id="participantName"
-          value={participantName}
-          onChange={(e) => setParticipantName(e.target.value)}
-          placeholder="Enter their name"
-          required
-        />
+      <div className="space-y-4">
+        <Label>Chat Participants</Label>
+        {participants.map((participant, index) => (
+          <div key={index} className="flex gap-2">
+            <Input
+              value={participant}
+              onChange={(e) => handleParticipantChange(index, e.target.value)}
+              placeholder={`Enter participant ${index + 1}'s name`}
+              required
+            />
+            {participants.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => handleRemoveParticipant(index)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleAddParticipant}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Another Participant
+        </Button>
       </div>
 
       <Button type="submit" className="w-full">
