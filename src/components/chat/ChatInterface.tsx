@@ -30,6 +30,47 @@ export const ChatInterface = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  const handleDeleteConversation = async () => {
+    if (!selectedContact?.chatHistoryId) return;
+
+    try {
+      // Delete chat messages
+      await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('chat_history_id', selectedContact.chatHistoryId);
+
+      // Delete chat participants
+      await supabase
+        .from('chat_participants')
+        .delete()
+        .eq('chat_history_id', selectedContact.chatHistoryId);
+
+      // Delete chat history upload
+      await supabase
+        .from('chat_history_uploads')
+        .delete()
+        .eq('id', selectedContact.chatHistoryId);
+
+      // Update local state
+      setContacts(contacts.filter(c => c.id !== selectedContact.id));
+      setSelectedContact(null);
+      setMessages([]);
+
+      toast({
+        title: "Conversation deleted",
+        description: "The conversation has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the conversation. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     const loadContacts = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -216,6 +257,7 @@ export const ChatInterface = () => {
             <ChatHeader
               contact={selectedContact}
               onBack={() => setShowContacts(true)}
+              onDelete={handleDeleteConversation}
               isMobile={isMobile}
             />
             <MessageList messages={messages} />
